@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Крестики-нолики</string>
+    <string name="new_game">Новая игра</string>
+    <string name="score">Счет</string>
+    <string name="create_player">Создать игрока</string>
+    <string name="select_first_player">Выберите первого игрока</string>
+    <string name="select_second_player">Выберите второго игрока</string>
+    <string name="player_avatar">Аватар игрока</string>
+    <string name="player_nickname">Никнейм</string>
+    <string name="confirm_button">Подтвердить</string>
+    <string name="upload_button">Загрузить</string>
+    <string name="select_player">Выберите игрока</string>
+    <string name="player_creation_error">Пожалуйста введите никнейем</string>
+    <string name="image_selection_error">Не удалось загрузить изображение</string>
+    <string name="players_selection_error">Пожалуйста выберите разных игроков</string>
+    <string name="player_turn">Ход игрока %s</string>
+</resources>

@@ -2,16 +2,15 @@ package ccfit.nsu.ru.khudyakov.tic_tok_toe.game;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.GridView;
-import android.widget.ImageView;
 import android.widget.TextView;
 
-import java.io.IOException;
+import androidx.annotation.NonNull;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -20,20 +19,35 @@ import ccfit.nsu.ru.khudyakov.tic_tok_toe.BaseActivity;
 import ccfit.nsu.ru.khudyakov.tic_tok_toe.R;
 import ccfit.nsu.ru.khudyakov.tic_tok_toe.entities.Player;
 import ccfit.nsu.ru.khudyakov.tic_tok_toe.game.model.Board;
+import ccfit.nsu.ru.khudyakov.tic_tok_toe.game.presenter.GamePresenter;
+import ccfit.nsu.ru.khudyakov.tic_tok_toe.game.presenter.GamePresenterFactory;
+import ccfit.nsu.ru.khudyakov.tic_tok_toe.game_menu.GameMenuActivity;
+import ccfit.nsu.ru.khudyakov.tic_tok_toe.utils.Utils;
 
 public class GameActivity extends BaseActivity implements GameView {
+    private final static String BOARD_CURRENT_STATE = "board_current_state";
+
     private final static String FIRST_PLAYER_ID = "first_player_id";
     private final static String SECOND_PLAYER_ID = "second_player_id";
+    private final static String CURRENT_PLAYER_ID = "current_player_id";
 
-    private GameViewPresenter gameViewPresenter;
+    private final static String FIRST_PLAYER_SCORE = "first_player_score";
+    private final static String SECOND_PLAYER_SCORE = "second_player_score";
+
+    private GamePresenter gamePresenter;
 
     private Player firstPlayer;
     private Player secondPlayer;
+
+    private Player currentPlayer;
 
     private int firstPlayerScore = 0;
     private int secondPlayerScore = 0;
 
     private ArrayAdapter<String> arrayAdapter;
+    private List<String> savedCells = null;
+
+    boolean activityRecreated = false;
 
     public static void start(final Context context, int firstPlayerId, int secondPlayerId) {
         Intent intent = new Intent(context, GameActivity.class);
@@ -42,21 +56,25 @@ public class GameActivity extends BaseActivity implements GameView {
         context.startActivity(intent);
     }
 
-    public static void refresh(final Context context) {
-        context.startActivity(new Intent(context, GameActivity.class));
-    }
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.game_board);
 
-        getPlayers();
+        if (savedInstanceState == null) {
+            initPlayers();
+            initNewGridBoard();
+        } else {
+            initSavedPlayers(savedInstanceState);
+            restoreGridBoard(savedInstanceState);
+        }
+
         initImages();
         initScores();
-        initGridBoard();
-    }
+        initNewGameButton();
 
+        activityRecreated = savedInstanceState != null;
+    }
 
     @Override
     protected void onStart() {
@@ -65,14 +83,38 @@ public class GameActivity extends BaseActivity implements GameView {
     }
 
     @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        refreshBoard();
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        ArrayList<String> state = new ArrayList<>();
+        for (int i = 0, count = arrayAdapter.getCount(); i < count; i++) {
+            state.add(i, arrayAdapter.getItem(i));
+        }
+
+        outState.putStringArrayList(BOARD_CURRENT_STATE, state);
+
+        outState.putInt(FIRST_PLAYER_ID, firstPlayer.getId());
+        outState.putInt(SECOND_PLAYER_ID, secondPlayer.getId());
+        outState.putInt(CURRENT_PLAYER_ID, currentPlayer.getId());
+
+        outState.putInt(FIRST_PLAYER_SCORE, firstPlayerScore);
+        outState.putInt(SECOND_PLAYER_SCORE, secondPlayerScore);
     }
 
-    private void getPlayers() {
-        firstPlayer = gameViewPresenter.getPlayer(getIntent().getIntExtra(FIRST_PLAYER_ID, -1));
-        secondPlayer = gameViewPresenter.getPlayer(getIntent().getIntExtra(SECOND_PLAYER_ID, -1));
+    private void initPlayers() {
+        firstPlayer = gamePresenter.getPlayer(getIntent().getIntExtra(FIRST_PLAYER_ID, -1));
+        secondPlayer = gamePresenter.getPlayer(getIntent().getIntExtra(SECOND_PLAYER_ID, -1));
+    }
+
+    private void initSavedPlayers(Bundle savedInstanceState) {
+        firstPlayer = gamePresenter.getPlayer(savedInstanceState.getInt(FIRST_PLAYER_ID, -1));
+        secondPlayer = gamePresenter.getPlayer(savedInstanceState.getInt(SECOND_PLAYER_ID, -1));
+        currentPlayer = gamePresenter.getPlayer(savedInstanceState.getInt(CURRENT_PLAYER_ID, -1));
+    }
+
+    private void initImages() {
+        Utils.uploadImage(this, findViewById(R.id.first_player_avatar_image), firstPlayer.getImageUri());
+        Utils.uploadImage(this, findViewById(R.id.second_player_avatar_image), secondPlayer.getImageUri());
     }
 
     private void initScores() {
@@ -83,15 +125,23 @@ public class GameActivity extends BaseActivity implements GameView {
         secondPlayerScoreView.setText(String.valueOf(secondPlayerScore));
     }
 
-    private void initImages() {
-        uploadImage(findViewById(R.id.first_player_avatar_image), firstPlayer.getImageUri());
-        uploadImage(findViewById(R.id.second_player_avatar_image), secondPlayer.getImageUri());
+    private void initNewGameButton() {
+        Button button = findViewById(R.id.new_game);
+        button.setOnClickListener(v -> startNewGame());
     }
 
-    private void initGridBoard() {
-        List<String> cells = buildEmptyCells();
+    private void initNewGridBoard() {
+        savedCells = buildEmptyCells();
+        initGridBoard(savedCells);
+    }
 
-        final GridView gridView = (GridView) findViewById(R.id.game_board);
+    private void restoreGridBoard(Bundle savedInstanceState) {
+        savedCells = savedInstanceState.getStringArrayList(BOARD_CURRENT_STATE);
+        initGridBoard(savedCells);
+    }
+
+    private void initGridBoard(List<String> cells) {
+        final GridView gridView = findViewById(R.id.game_board);
 
         arrayAdapter = new ArrayAdapter<>(
                 getApplicationContext(),
@@ -106,19 +156,17 @@ public class GameActivity extends BaseActivity implements GameView {
 
             if (textView.getText().equals("")) {
                 int boardSize = Board.getBoardSize();
-                gameViewPresenter.nextTurn(textView, position / boardSize, position % boardSize);
+                gamePresenter.nextTurn(position, position / boardSize, position % boardSize);
             }
         });
     }
 
     private void refreshBoard() {
-        gameViewPresenter.createBoard(firstPlayer, secondPlayer);
-
-        List<String> cells = buildEmptyCells();
+        gamePresenter.createBoard(firstPlayer, secondPlayer);
 
         arrayAdapter.clear();
-        arrayAdapter.addAll(cells);
-        arrayAdapter.notifyDataSetChanged();
+        arrayAdapter.addAll(buildEmptyCells());
+        updateAdapter();
     }
 
     private List<String> buildEmptyCells() {
@@ -131,58 +179,61 @@ public class GameActivity extends BaseActivity implements GameView {
         if (firstPlayer == null || secondPlayer == null) {
             throw new IllegalStateException("Player's are not defined");
         } else {
-            gameViewPresenter.createBoard(firstPlayer, secondPlayer);
-        }
-    }
-
-    private void uploadImage(ImageView imageView, Uri uri) {
-        if (uri != null) {
-            try {
-                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
-                imageView.setImageBitmap(bitmap);
-            } catch (IOException e) {
-                e.printStackTrace();
+            if (activityRecreated) {
+                gamePresenter.restoreBoard(firstPlayer, secondPlayer, currentPlayer, savedCells);
+            } else {
+                gamePresenter.createBoard(firstPlayer, secondPlayer);
             }
         }
     }
 
     @Override
-    public void setIcon(TextView textView, Player player) {
+    public void setSign(int position, Player player) {
         if (player.equals(firstPlayer)) {
-            textView.setText(Icon.X.name());
+            savedCells.set(position, Sign.X.name());
+            updateAdapter();
         } else if (player.equals(secondPlayer)) {
-            textView.setText(Icon.O.name());
+            savedCells.set(position, Sign.O.name());
+            updateAdapter();
         } else {
             throw new IllegalStateException("Unknown user");
         }
     }
 
+    private void updateAdapter() {
+        arrayAdapter.notifyDataSetChanged();
+    }
+
     @Override
     public void setCurrentPlayer(Player player) {
+        currentPlayer = player;
         TextView textView = findViewById(R.id.current_player_name);
-        textView.setText(String.format("Player's %s turn", player.getNickname()));
+        textView.setText(String.format(getString(R.string.player_turn), currentPlayer.getNickname()));
     }
 
     @Override
     public void startNewRound(Player winner) {
         if (winner != null) {
             if (winner.equals(firstPlayer)) {
-                firstPlayerScore++;
-                ((TextView) findViewById(R.id.first_player_score)).setText(String.valueOf(firstPlayerScore));
+                ((TextView) findViewById(R.id.first_player_score)).setText(String.valueOf(++firstPlayerScore));
             } else if (winner.equals(secondPlayer)) {
-                secondPlayerScore++;
-                ((TextView) findViewById(R.id.second_player_score)).setText(String.valueOf(secondPlayerScore));
+                ((TextView) findViewById(R.id.second_player_score)).setText(String.valueOf(++secondPlayerScore));
             } else {
                 throw new IllegalStateException("Unknown user");
             }
         }
-        refresh(this);
+
+        refreshBoard();
+    }
+
+    @Override
+    public void startNewGame() {
+        GameMenuActivity.start(this);
     }
 
     @Override
     protected GamePresenter createPresenter() {
-        GamePresenter gamePresenter = GamePresenter.createPresenter();
-        gameViewPresenter = gamePresenter;
+        gamePresenter = GamePresenterFactory.createPresenter(this);
         return gamePresenter;
     }
 
@@ -191,4 +242,8 @@ public class GameActivity extends BaseActivity implements GameView {
         return this;
     }
 
+    @Override
+    public void onBackPressed() {
+        GameMenuActivity.start(this);
+    }
 }

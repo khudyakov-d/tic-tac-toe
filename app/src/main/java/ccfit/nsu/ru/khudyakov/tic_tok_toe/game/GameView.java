@@ -6,9 +6,11 @@ import ccfit.nsu.ru.khudyakov.tic_tok_toe.MvpView;
 import ccfit.nsu.ru.khudyakov.tic_tok_toe.entities.Player;
 
 public interface GameView extends MvpView {
-    void setIcon(TextView textView, Player player);
+    void setSign(int position, Player player);
 
     void setCurrentPlayer(Player player);
 
     void startNewRound(Player player);
+
+    void startNewGame();
 }

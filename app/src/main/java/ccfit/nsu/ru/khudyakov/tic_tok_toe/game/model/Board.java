@@ -1,23 +1,26 @@
 package ccfit.nsu.ru.khudyakov.tic_tok_toe.game.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import ccfit.nsu.ru.khudyakov.tic_tok_toe.entities.Player;
-import ccfit.nsu.ru.khudyakov.tic_tok_toe.game.GameModelPresenter;
+import ccfit.nsu.ru.khudyakov.tic_tok_toe.game.Sign;
+import ccfit.nsu.ru.khudyakov.tic_tok_toe.game.presenter.GameModelListener;
 
 public class Board {
-    private final GameModelPresenter gameModelPresenter;
+    private final List<GameModelListener> gameModelListeners = new ArrayList<>();
 
     private static final int BOARD_SIZE = 3;
 
-    private Player firstPlayer;
-    private Player secondPlayer;
+    final private Player firstPlayer;
+    final private Player secondPlayer;
 
     private Player currentPlayer;
 
-    public Cell[][] cells;
+    private final Cell[][] cells;
 
 
-    public Board(GameModelPresenter gameModelPresenter, Player firstPlayer, Player secondPlayer) {
-        this.gameModelPresenter = gameModelPresenter;
+    public Board(Player firstPlayer, Player secondPlayer) {
 
         this.firstPlayer = firstPlayer;
         this.secondPlayer = secondPlayer;
@@ -26,23 +29,62 @@ public class Board {
         currentPlayer = firstPlayer;
     }
 
-    public Player nextTurn(int i, int j) {
-        cells[i][j] = new Cell(currentPlayer);
+    public Board(Player firstPlayer, Player secondPlayer, Player currentPlayer, List<String> savedCells) {
 
-        return currentPlayer;
+        this.firstPlayer = firstPlayer;
+        this.secondPlayer = secondPlayer;
+
+        this.cells = new Cell[BOARD_SIZE][BOARD_SIZE];
+
+        for (int i = 0, savedCellsSize = savedCells.size(); i < savedCellsSize; i++) {
+            if (!savedCells.get(i).equals("")) {
+                switch (Sign.valueOf(savedCells.get(i))) {
+                    case X:
+                        cells[i / BOARD_SIZE][i % BOARD_SIZE] = new Cell(firstPlayer);
+                        break;
+                    case O:
+                        cells[i / BOARD_SIZE][i % BOARD_SIZE] = new Cell(secondPlayer);
+                        break;
+                }
+            }
+        }
+
+        this.currentPlayer = currentPlayer;
     }
 
-    public void checkGameEnd() {
+    public void addListener(GameModelListener gameModelListener) {
+        gameModelListeners.add(gameModelListener);
+    }
+
+    private void winnerNotify(Player player) {
+        for (GameModelListener listener : gameModelListeners) {
+            listener.setWinner(player);
+        }
+    }
+
+    private void signNotify(int position, Player player) {
+        for (GameModelListener listener : gameModelListeners) {
+            listener.setSign(position, player);
+        }
+    }
+
+    public void nextTurn(int i, int j) {
+        cells[i][j] = new Cell(currentPlayer);
+        signNotify(i * BOARD_SIZE + j, currentPlayer);
+        checkGameEnd();
+    }
+
+    private void checkGameEnd() {
         if (checkCellsColumns() || checkCellsRows() || checkCellsDiagonals()) {
-            gameModelPresenter.setWinner(currentPlayer);
+            winnerNotify(currentPlayer);
         } else if (isBoardFull()) {
-            gameModelPresenter.setWinner(null);
+            winnerNotify(null);
         } else {
             switchPlayer();
         }
     }
 
-    public boolean checkCellsRows() {
+    private boolean checkCellsRows() {
         for (int i = 0; i < BOARD_SIZE; i++) {
             if (checkCellsEqual(cells[i])) {
                 return true;

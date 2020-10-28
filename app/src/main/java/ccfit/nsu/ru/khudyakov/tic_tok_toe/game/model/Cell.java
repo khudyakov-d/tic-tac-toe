@@ -5,7 +5,7 @@ import java.util.Objects;
 import ccfit.nsu.ru.khudyakov.tic_tok_toe.entities.Player;
 
 public class Cell {
-    private Player player;
+    private final Player player;
 
     public Cell(Player player) {
         this.player = player;

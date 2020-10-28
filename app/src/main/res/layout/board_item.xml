@@ -3,7 +3,6 @@
     android:id="@+id/board_item"
     android:layout_width="match_parent"
     android:layout_height="100dp"
-    android:layout_margin="10dp"
     android:gravity="center"
     android:textSize="50sp"
-    android:background="@drawable/textview_border"/>
+    android:background="@drawable/border"/>

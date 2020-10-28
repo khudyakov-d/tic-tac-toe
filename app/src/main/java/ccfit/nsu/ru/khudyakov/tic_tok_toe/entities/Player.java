@@ -8,17 +8,19 @@ public class Player {
 
     private Integer id;
 
-    private String nickname;
+    private final String nickname;
 
-    private Uri imageUri;
+    private final Uri imageUri;
 
     public Player(String nickname, Uri imageUri) {
         this.nickname = nickname;
         this.imageUri = imageUri;
     }
 
-    public Player(Integer id) {
+    public Player(Integer id, String nickname, Uri imageUri) {
         this.id = id;
+        this.nickname = nickname;
+        this.imageUri = imageUri;
     }
 
     public String getNickname() {
